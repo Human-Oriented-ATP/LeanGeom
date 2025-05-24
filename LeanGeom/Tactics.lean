@@ -4,18 +4,11 @@ import Qq
 
 open Lean Elab Meta Qq
 
-notation "∠" A:max B:max => Complex.orientation.oangle A B
 instance : Fact <| Module.finrank ℝ ℂ = 2 := ⟨Complex.finrank_real_complex⟩
 
-simproc raySwap (Orientation.oangle Complex.orientation _ _) := fun e => do
-  let ⟨1, ~q(Real.Angle), ~q(Orientation.oangle Complex.orientation $A $B)⟩ ← inferTypeQ e | return .continue
-  if Expr.lt A B then
-    return .continue
-  else
-    return .done {
-      expr := q(-(Orientation.oangle Complex.orientation $B $A)),
-      proof? := some q(Orientation.oangle_rev Complex.orientation $B $A)
-    }
+noncomputable def RayAngle (A B : ℂ) : Real.Angle := Complex.orientation.oangle (A - B) 1
+
+notation "∠" A:max B:max => RayAngle A B
 
 -- #check  AddCircle.equivAddCircle
 
@@ -32,6 +25,24 @@ For distances with multiplication, use `log` to cast it into something additive,
 
 section Angles
 
+open Real
+
+open private dischargeUsingAssumption? in Simp.dischargeDefault?
+
+theorem rayAngle_swap (A B : ℂ) (h : A ≠ B) : ∠ B A = ∠ A B + π := by
+  unfold RayAngle
+  rw [← Orientation.oangle_neg_left _ (sub_ne_zero_of_ne h) (by norm_num), neg_sub]
+
+simproc raySwap (RayAngle _ _) := .ofQ fun
+  | 1, ~q(Real.Angle), ~q(∠ $B $A) => do
+    if Expr.lt A B then
+      let some e ← dischargeUsingAssumption? q($A ≠ $B) | return .continue
+      have e : Q($A ≠ $B) := e
+      return .done <| .mk q(∠ $A $B + π) (some q(rayAngle_swap $A $B $e))
+    else
+      return .continue
+
+
 elab "abel_angle" : tactic => return
 
 -- example : (↑(Real.pi/2) : Real.Angle) = ↑((5/2) * Real.pi) := by
@@ -40,9 +51,9 @@ elab "abel_angle" : tactic => return
 -- example (A B : ℂ) : ∠ A B = ∠ B A + ↑(9 * Real.pi) := by
 --   abel_angle
 
-example (A B : ℂ) : ∠ A B + ∠ B A = 0 := by
-  simp only [raySwap]
-  abel
+example (A B : ℂ) (h : A ≠ B) : ∠ A B = ∠ B A - π := by
+  simp [raySwap]
+
 
 end Angles
 
