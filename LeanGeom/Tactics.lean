@@ -75,9 +75,9 @@ private lemma angleEquiv_pi_div (x : ℝ) : AngleEquiv ↑(π / x) = ↑((2 * x)
 macro "angle_preprocess" : tactic => `(tactic| (
   refine angleEquiv_inj ?_
   simp only [
-    map_angleEquiv_neg, map_angleEquiv_zero, map_angleEquiv_add, map_angleEquiv_sub, map_angleEquiv_nsmul,
-    angleEquiv_pi, angleEquiv_mul_pi, angleEquiv_pi_div,
-    raySwap]))
+    ↓map_angleEquiv_neg, ↓map_angleEquiv_zero, ↓map_angleEquiv_add, ↓map_angleEquiv_sub, ↓map_angleEquiv_nsmul,
+    ↓angleEquiv_pi, ↓angleEquiv_mul_pi, ↓angleEquiv_pi_div,
+    ↓raySwap]))
 
 private lemma sub_eq_zero {a b : AddCircle (1 : ℝ)} : a - b = 0 → a = b := _root_.sub_eq_zero.mp
 
@@ -102,7 +102,6 @@ macro "abel_angle" : tactic => `(tactic| angle_preprocess <;> abel_mod_1)
 example : (↑(π/2) : Angle) = ↑((5/2) * π) := by
   abel_angle
 
-section
 variable (A B : ℂ) (h : A ≠ B)
 
 example  : ∠ A B = ∠ B A + ↑(9 * π) := by
@@ -119,8 +118,6 @@ example  : ∠ A B = ∠ A B := by
 
 example  : ∠ A B = ∠ B A - π := by
   abel_angle
-
-end
 
 end Angles
 
