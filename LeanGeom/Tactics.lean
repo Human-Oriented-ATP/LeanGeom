@@ -42,18 +42,44 @@ simproc raySwap (RayAngle _ _) := .ofQ fun
     else
       return .continue
 
+noncomputable abbrev Angle.equivUnitAddCircle : Angle ≃+ UnitAddCircle :=
+  AddCircle.equivAddCircle (2 * π) (1 : ℝ) (by simp [pi_ne_zero]) (zero_ne_one' ℝ).symm
 
-elab "abel_angle" : tactic => return
+lemma Angle.equivUnitAddCircle_apply_mk (x : ℝ) :
+  Angle.equivUnitAddCircle (Angle.coe x) = (x * (2 * π)⁻¹ : UnitAddCircle) := by
+  rw [← mul_one (2 * π)⁻¹]
+  apply AddCircle.equivAddCircle_apply_mk
 
--- example : (↑(Real.pi/2) : Real.Angle) = ↑((5/2) * Real.pi) := by
---   abel_angle
+macro "angle_to_unit_add_circle" : tactic =>
+`(tactic| (
+  rw [← Angle.equivUnitAddCircle.apply_eq_iff_eq]
+  try (simp only [AddEquiv.map_add, AddEquiv.map_zero, AddEquiv.map_sub, AddEquiv.map_neg, ← Angle.coe_nsmul])
+  simp only [Angle.equivUnitAddCircle_apply_mk]
+  ring_nf
+  try (simp only [mul_inv_cancel₀ pi_ne_zero, inv_mul_cancel₀ pi_ne_zero, mul_one, one_mul])
+  ))
 
--- example (A B : ℂ) : ∠ A B = ∠ B A + ↑(9 * Real.pi) := by
---   abel_angle
+macro "abel_angle" : tactic =>
+`(tactic| (
+    try (simp only [raySwap])
+    angle_to_unit_add_circle
+    refine sub_eq_zero.mp ?_
+    abel_nf
+    try (simp only [← QuotientAddGroup.mk_add, ← QuotientAddGroup.mk_zsmul])
+    rw [AddCircle.coe_eq_zero_iff]
+    use ?n
+    norm_num
+    norm_cast
+    exact rfl))
 
-example (A B : ℂ) (h : A ≠ B) : ∠ A B = ∠ B A - π := by
-  simp only [raySwap, add_sub_cancel_right]
+example : (↑(Real.pi/2) : Real.Angle) = ↑((5/2) * Real.pi) := by
+  abel_angle
 
+example (A B : ℂ) (h : A ≠ B) : ∠ A B = ∠ B A + ↑(9 * Real.pi) := by
+  abel_angle
+
+example (A B C D : ℂ) (h : A ≠ B) : ∠ A B - π + ∠ C D = (↑(Real.pi/2) : Real.Angle) + ∠ C D + (π : Real.Angle) + ∠ B A + (↑(Real.pi/2) : Real.Angle) := by
+  abel_angle
 
 end Angles
 
