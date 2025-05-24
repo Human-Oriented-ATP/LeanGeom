@@ -1,8 +1,21 @@
 import Mathlib.Geometry.Euclidean.Angle.Oriented.Basic
+import Lean
+import Qq
+
+open Lean Elab Meta Qq
 
 notation "∠" A:max B:max => Complex.orientation.oangle A B
 instance : Fact <| Module.finrank ℝ ℂ = 2 := ⟨Complex.finrank_real_complex⟩
 
+simproc raySwap (Orientation.oangle Complex.orientation _ _) := fun e => do
+  let ⟨1, ~q(Real.Angle), ~q(Orientation.oangle Complex.orientation $A $B)⟩ ← inferTypeQ e | return .continue
+  if Expr.lt A B then
+    return .continue
+  else
+    return .done {
+      expr := q(-(Orientation.oangle Complex.orientation $B $A)),
+      proof? := some q(Orientation.oangle_rev Complex.orientation $B $A)
+    }
 
 -- #check  AddCircle.equivAddCircle
 
@@ -26,6 +39,10 @@ elab "abel_angle" : tactic => return
 
 -- example (A B : ℂ) : ∠ A B = ∠ B A + ↑(9 * Real.pi) := by
 --   abel_angle
+
+example (A B : ℂ) : ∠ A B + ∠ B A = 0 := by
+  simp only [raySwap]
+  abel
 
 end Angles
 
