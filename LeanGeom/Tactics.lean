@@ -37,7 +37,7 @@ simproc raySwap (RayAngle _ _) := .ofQ fun
   | 1, ~q(Real.Angle), ~q(∠ $B $A) => do
     if Expr.lt A B then
       let some e ← dischargeUsingAssumption? q($A ≠ $B) | return .continue
-      have e : Q($A ≠ $B) := e
+      let some e ← checkTypeQ e q($A ≠ $B) | return .continue
       return .done <| .mk q(∠ $A $B + π) (some q(rayAngle_swap $A $B $e))
     else
       return .continue
@@ -52,7 +52,7 @@ elab "abel_angle" : tactic => return
 --   abel_angle
 
 example (A B : ℂ) (h : A ≠ B) : ∠ A B = ∠ B A - π := by
-  simp [raySwap]
+  simp only [raySwap, add_sub_cancel_right]
 
 
 end Angles
