@@ -41,22 +41,38 @@ instance : ToMessageData Proposition where
     | .angleEqZero angle => m!"{angle} = 0"
     | .angleNeqZero angle => m!"{angle} ≠ 0"
 
-inductive Reason where
-| app (lem : Name) (args : Array (Atomic Proposition))
-| angleComb (comb : LSum Int (Atomic Proposition))
-| given (pf : Expr)
-deriving Inhabited, BEq
+abbrev AtomProp := Atomic Proposition
+
+local instance : Ord Lean.Name := ⟨Lean.Name.cmp⟩
+
+inductive TermProof where
+| app (lem : Name) (args : Array TermProof)
+| proved (p : AtomProp)
+| hypothesis (h : Name)
+| negatedGoal
+deriving Inhabited, BEq, Hashable
+
+abbrev AtomTermProof := Atomic TermProof
+
+inductive TacticProof where
+| angleComb (comb : List (Int × AtomTermProof))
+deriving Inhabited
+
+inductive Proof where
+| term (pf : TermProof)
+| tac (pf : TacticProof)
+deriving Inhabited
 
 inductive CompleteProof where
-| byContra (pos neg : Atomic Proposition)
-| angleEqZero (comb : List (Int × Atomic Proposition))
+| byContra (p1 p2 : AtomProp)
+| nonzeroEqZero (comb : List (Int × AtomTermProof))
 
 
 structure Facts where
-  angles : Array AngleSum := #[]
-  nangles : Array AngleSum := #[]
+  angles : Array (AngleSum × AtomTermProof) := #[]
+  nangles : Array (AngleSum × AtomTermProof) := #[]
 instance : ToMessageData Facts where
-  toMessageData facts := m!"{facts.angles}\n{facts.nangles}"
+  toMessageData facts := m!"{facts.angles.map (·.1)}\n{facts.nangles.map (·.1)}"
 
 
 
@@ -66,13 +82,14 @@ structure Ray' where (A B : Atomic Point)
 structure SolveCtx where
   point : AtomContext Point := {}
   ray : AtomContext Ray' := {}
-  angle : IntCombContext (Atomic Ray') RatAngle (Atomic Proposition) := {}
+  angle : IntCombContext (Atomic Ray') RatAngle AtomTermProof := {}
 
 
 
 structure GeomState where
   props : AtomContext Proposition := {}
-  proofs : Std.HashMap (Atomic Proposition) Reason := {}
+  proofs : Std.HashMap AtomProp Proof := {}
+  termProofs : AtomContext TermProof := {}
   result : Option CompleteProof := none
   facts : Facts := {}
   context : SolveCtx := {}
@@ -83,24 +100,25 @@ abbrev GeomM := StateRefT GeomState MetaM
 def GeomM.run {α : Type} (x : GeomM α) : MetaM α := StateRefT'.run' x {}
 
 instance : MonadAtom Proposition GeomM := ⟨return (← get).props, (modify fun s => { s with props := · s.props })⟩
+instance : MonadAtom TermProof GeomM := ⟨return (← get).termProofs, (modify fun s => { s with termProofs := · s.termProofs })⟩
 
 instance : MonadAtom Point GeomM := ⟨return (← get).context.point, (modify fun s => { s with context.point := · s.context.point })⟩
 instance : MonadAtom Ray'  GeomM := ⟨return (← get).context.ray  , (modify fun s => { s with context.ray   := · s.context.ray   })⟩
 
-instance : MonadIntComb (Atomic Ray') RatAngle (Atomic Proposition) GeomM := ⟨modifyGet fun s => (s.context.angle, { s with context.angle := {} }), fun ctx => modify ({ · with context.angle := ctx })⟩
+instance : MonadIntComb (Atomic Ray') RatAngle AtomTermProof GeomM := ⟨modifyGet fun s => (s.context.angle, { s with context.angle := {} }), fun ctx => modify ({ · with context.angle := ctx })⟩
 
 @[inline] def modifyFacts (f : Facts → Facts) : GeomM Unit :=
   modify fun s => { s with facts := f s.facts }
 
-def addProof (prop : Atomic Proposition) (pf : Reason) : GeomM Unit := do
+def addProof (prop : AtomProp) (pf : Proof) : GeomM Unit := do
   if !(← get).proofs.contains prop then
     modify fun s => { s with proofs := s.proofs.insert prop pf }
 
-def getProof (prop : Atomic Proposition) : GeomM Reason := do
+def getProof (prop : AtomProp) : GeomM Proof := do
   match (← get).proofs[prop]? with
   | some pf => return pf
   | none => throwError "proposition {← deAtomize prop} doesn't have a proof"
 
-def addCompleteProof {α : Type} (pf : CompleteProof) : GeomM α := do
+def finishProof {α : Type} (pf : CompleteProof) : GeomM α := do
   modify fun s => { s with result := pf }
   throwError "the problem has been solved"

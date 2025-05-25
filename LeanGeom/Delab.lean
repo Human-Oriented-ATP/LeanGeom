@@ -1,4 +1,3 @@
-import Batteries.Data.Rat.Basic
 import LeanGeom.Defs
 import LeanGeom.Tactics
 
@@ -72,40 +71,55 @@ def delabProposition (prop : Proposition) : MetaM Term := do
 
 
 
+structure DelabState where
+  nameGen : NameGenerator := { namePrefix := `h }
+  names : Std.HashMap AtomProp Ident := {}
+
+abbrev DelabGeomM := StateT DelabState GeomM
+
+def delabTermProof (pf : TermProof) : DelabGeomM Term := do
+  match pf with
+  | .app lem args =>
+    let argNames : Array Term ← args.attach.mapM (fun ⟨arg, _⟩ => delabTermProof arg)
+    return Syntax.mkApp (mkIdent lem) argNames
+  | .proved p => return (← get).names[p]!
+  | .hypothesis h => return mkIdent h
+  | .negatedGoal => throwError "need to revert the goal (using `by_contra`) before using it"
 
 
-def delabLinearComb (names : Std.HashMap (Atomic Proposition) Ident) : LSum Int (Atomic Proposition) → MetaM Term
-  | .cons n prop s => do
-    let h : Term := names[prop]!
+def delabLinearComb : List (Int × AtomTermProof) → DelabGeomM Term
+  | (n, h) :: s => do
     let (n, n_pos) := (n.natAbs, (n ≥ 0 : Bool))
+    let h ← delabTermProof (← deAtomize h)
     let h ←
       if n = 1 then
         pure h
       else
         `($(Syntax.mkNatLit n) * $h)
-    if s.isNil then
+    if s.isEmpty then
       if n_pos then
         return h
       else
         `(-$h)
     else
-      let s ← delabLinearComb names s
+      let s ← delabLinearComb s
       if n_pos then
         `($s + $h)
       else
         `($s - $h)
-  | .nil => unreachable!
+  | [] => unreachable!
+
+def delabTacticProof (pf : TacticProof) : DelabGeomM Syntax.Tactic := do
+  match pf with
+  | .angleComb comb => `(tactic| linear_combination (norm := abel) $(← delabLinearComb comb):term)
 
 
-def delabReason (reason : Reason) (prop : Proposition) (names : Std.HashMap (Atomic Proposition) Ident) : MetaM Term := do
-  match reason with
-  | .app lem args =>
-    let argNames : Array Ident := args.map (names[·]!)
-    return Syntax.mkApp (mkIdent lem) argNames
-  | .angleComb comb => `(by linear_combination (norm := abel) $(← delabLinearComb names comb):term)
-  | .given (.fvar fvarId) =>
-    let h ← `(ident| $(mkIdent (← fvarId.getUserName)))
-    match prop with
-    | .angleEqZero _ => `(by linear_combination (norm := abel) $h:term)
-    | .angleNeqZero _ => `(by contrapose! $h; linear_combination (norm := abel) $h:term)
-  | .given pf => throwError "don't know how to delaborate proof {pf}"
+def delabProofAsTerm (pf : Proof) : DelabGeomM Term := do
+  match pf with
+  | .term pf => delabTermProof pf
+  | .tac pf => do `(by $(← delabTacticProof pf):tactic)
+
+def delabProofAsTactic (pf : Proof) : DelabGeomM Syntax.Tactic := do
+  match pf with
+  | .term pf => do `(tactic| exact $(← delabTermProof pf):term)
+  | .tac pf => delabTacticProof pf

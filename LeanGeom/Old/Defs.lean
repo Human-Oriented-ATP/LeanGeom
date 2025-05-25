@@ -2,7 +2,7 @@ import LeanGeom.Util
 
 namespace LeanGeom
 
-local instance : Ord Lean.Name := ⟨Lean.Name.quickCmp⟩
+local instance : Ord Lean.Name := ⟨Lean.Name.cmp⟩
 
 inductive Point where
 | free (p : Lean.Name)

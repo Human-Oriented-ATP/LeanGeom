@@ -1,5 +1,5 @@
-import Std
-import Lean
+import Std.Data.HashMap.Basic
+import Lean.Exception
 
 structure Atomic (α : Type) where
   id : Nat

@@ -1,17 +1,13 @@
-import Mathlib.Geometry.Euclidean.Angle.Oriented.Basic
-import Mathlib.Tactic.NormNum
-import Lean
-import Qq
+import LeanGeom.LeanDefs
+import Mathlib.Tactic
+
+/-!
+This file defines the tactics that are used by the `lean_geom` tactic.
+-/
 
 namespace Tactic
 
 open Lean Elab Meta Qq
-
-instance : Fact <| Module.finrank ℝ ℂ = 2 := ⟨Complex.finrank_real_complex⟩
-
-noncomputable def RayAngle (A B : ℂ) : Real.Angle := Complex.orientation.oangle (A - B) 1
-
-notation "∠" A:max B:max => RayAngle A B
 
 /-
 first use simp with `equivAddCircle` to cast into `AddCircle 1`, and push the cast.
