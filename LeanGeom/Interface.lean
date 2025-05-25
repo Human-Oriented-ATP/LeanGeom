@@ -1,6 +1,6 @@
 import LeanGeom.Reify
 import LeanGeom.Delab
-import LeanGeom.AngleArith
+import LeanGeom.Solve
 
 open Lean Elab.Tactic
 
@@ -95,20 +95,27 @@ elab "lean_geom" : tactic => withMainContext do
   let pf ← `(tacticSeq| $[$pf]*)
   logInfo m! "{pf}"
   Elab.Tactic.evalTactic pf
+  done
 
 example : 0 = ((2 * 2 * Real.pi : ℝ) : Real.Angle) := by
   abel_angle
 
-example (A B C D E F P : ℂ)
+example (A B C D E F P : ℂ) (h : E ≠ P) (h : F ≠ P) (h : D ≠ P) (h : C ≠ E) (H : A ≠ E)
     (h₁ : ∠ A E - ∠ A F - ∠ P E + ∠ P F = 0)
     (h₂ : ∠ B F - ∠ B D - ∠ P F + ∠ P D = 0)
-    (h₃ : ∠ C D + ∠ C E - ∠ P D + ∠ P E = 0)
+    (h₃ : ∠ C D + ∠ E C - ∠ D P + ∠ P E = 0)
+    (l₁ : ∠ E A = -∠ E C) (l₂ : ∠ A F = ∠ B F) :
+    (∠ B D = ∠ C D) := by
+  lean_geom
+
+example (A B C D E F P : ℂ)
+    (h₁ : ∠ A E - ∠ A F - ∠ E P + ∠ F P = 0)
+    (h₂ : ∠ B F - ∠ B D - ∠ F P + ∠ D P = 0)
+    (h₃ : ∠ C D + ∠ C E - ∠ D P + ∠ E P = 0)
     (l₁ : ∠ A E = -∠ C E) (l₂ : ∠ A F = ∠ B F) :
     (∠ B D = ∠ C D) := by
   lean_geom
-  -- have h_1 : ∠ B D = ∠ C D := by linear_combination (norm := abel) -h₁ - h₂ - h₃ + l₁ - l₂
-  -- absurd nl₃
-  -- exact h_1
+  -- linear_combination (norm := abel) -h₁ - h₂ - h₃ + l₁ - l₂
 
 example (B C D : ℂ) (h : ∠ B D = ∠ C D) (g : ∠ B D ≠ ∠ C D) : False := by
   lean_geom

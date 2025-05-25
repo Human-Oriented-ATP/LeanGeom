@@ -8,8 +8,8 @@ instance : Hashable Rat where
 @[ext]
 structure RatAngle where
   q : Rat
-  q_ge : 0 ≤ q := by decide
-  q_lt : q < 1 := by decide
+  q_ge : 0 ≤ q := by norm_num
+  q_lt : q < 1 := by norm_num
 deriving DecidableEq, Hashable, Ord
 instance : Repr RatAngle := ⟨fun r _ => s!"{r.q}τ"⟩
 instance : Lean.ToMessageData RatAngle := ⟨(m!"{·.q}τ")⟩
@@ -17,7 +17,7 @@ instance : Lean.ToMessageData RatAngle := ⟨(m!"{·.q}τ")⟩
 namespace RatAngle
 
 instance : Zero RatAngle where
-  zero := { q := 0, q_ge := by decide, q_lt := by decide }
+  zero := { q := 0 }
 
 instance : Inhabited RatAngle := ⟨0⟩
 

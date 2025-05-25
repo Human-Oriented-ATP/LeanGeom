@@ -9,6 +9,8 @@ instance {α}: Repr (Atomic α) := ⟨fun ⟨id⟩ _ => s!"⟨{id}⟩"⟩
 variable {α : Type} [BEq α] [Hashable α]
 
 instance : BEq (Atomic α) := ⟨(·.1 = ·.1)⟩
+instance : LT (Atomic α) := ⟨(·.1 < ·.1)⟩
+instance : LE (Atomic α) := ⟨(·.1 ≤ ·.1)⟩
 instance : Ord (Atomic α) := ⟨(compare ·.1 ·.1)⟩
 instance : Hashable (Atomic α) := ⟨(hash ·.1)⟩
 

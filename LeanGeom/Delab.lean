@@ -111,7 +111,7 @@ def delabLinearComb : List (Int × AtomTermProof) → DelabGeomM Term
 
 def delabTacticProof (pf : TacticProof) : DelabGeomM Syntax.Tactic := do
   match pf with
-  | .angleComb comb => `(tactic| linear_combination (norm := abel) $(← delabLinearComb comb):term)
+  | .angleComb comb => `(tactic| linear_combination (norm := abel_angle) $(← delabLinearComb comb):term)
 
 
 def delabProofAsTerm (pf : Proof) : DelabGeomM Term := do

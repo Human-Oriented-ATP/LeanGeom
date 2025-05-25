@@ -1,15 +1,17 @@
 import LeanGeom.Defs
 
-open Lean
-
 def normalizeAngle (angle : AngleSum) (pf : LSum ℤ AtomTermProof) : GeomM (LComb ℤ (Atomic Ray') RatAngle AtomTermProof) := do
-  let lcomb : LComb ℤ (Atomic Ray') RatAngle AtomTermProof := {
-    sum := ← angle.sum.foldlM (init := .nil) fun sum (n, { A, B }) => do
-      let ray ← atomize { A := ← atomize A, B := ← atomize B }
-      return sum.insert n ray
-    const := angle.θ
-    pf }
-  simplifyLComb lcomb
+  let (sum, flip) ← (StateT.run · false) <|
+    angle.sum.foldlM (init := .nil) fun sum (n, { A, B }) => do
+      let A ← atomize A
+      let B ← atomize B
+      if B < A then
+        modify (!·)
+        return sum.insert n (← atomize { A := B, B := A })
+      else
+        return sum.insert n (← atomize { A, B })
+  let const := if flip then angle.θ + { q := 1/2 } else angle.θ
+  simplifyLComb { sum, const, pf }
 
 
 def addAngle (angle : AngleSum) (pf : AtomTermProof) : GeomM Unit := do
