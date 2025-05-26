@@ -97,6 +97,7 @@ elab "lean_geom" : tactic => do
   let pf ← obtainTacticProofScript
   logInfo m! "{pf}"
   evalTactic pf
+  done
 
 elab stx:"lean_geom?" : tactic => do
   let pf ← obtainTacticProofScript
