@@ -84,18 +84,27 @@ def delabCompleteProof (proof : CompleteProof) (props : Array AtomProp) : DelabG
     return lines.push (← delabProofAsTactic pf2)
   | .nonzeroEqZero _ => throwError "not yet implemented"
 
-
-elab "lean_geom" : tactic => withMainContext do
+def obtainTacticProofScript : TacticM (TSyntax ``Parser.Tactic.tacticSeq) := withMainContext do
   let goal ← getMainTarget
   let pf ← GeomM.run do
     obtainFacts goal
     let some pf ← getSolution | throwError "no solution was found"
     let props ← collectUsedProps pf |>.run' {}
     delabCompleteProof pf props |>.run' {}
-  let pf ← `(tacticSeq| $[$pf]*)
+  `(tacticSeq| $[$pf]*)
+
+elab "lean_geom" : tactic => do
+  let pf ← obtainTacticProofScript
   logInfo m! "{pf}"
-  Elab.Tactic.evalTactic pf
-  done
+  evalTactic pf
+
+elab stx:"lean_geom?" : tactic => do
+  let pf ← obtainTacticProofScript
+  evalTactic pf
+  Meta.Tactic.TryThis.addSuggestion stx {
+    suggestion := .tsyntax pf,
+    style? := some .success
+  }
 
 example : 0 = ((2 * 2 * Real.pi : ℝ) : Real.Angle) := by
   abel_angle
