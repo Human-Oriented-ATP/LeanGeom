@@ -2,7 +2,7 @@ import Std
 import Mathlib.Algebra.Notation.Defs
 import Mathlib.Data.Rat.Defs
 
-/-- keep the invariant that `a = a₁ * x + a₂ * y`, `b = b₁ * x + b₂ * y` -/
+/-- keep the invariant that `a = a₁ * x + a₂ * y` and `b = b₁ * x + b₂ * y` -/
 partial def Int.xgcdAux (a a₁ a₂ b b₁ b₂ : Int) (_ : b ≠ 0) : Int × Int × Int :=
   if h : a % b = 0 then
     (b, b₁, b₂)
@@ -133,6 +133,11 @@ deriving Inhabited
 namespace IntCombContext
 
 variable {G α π} [Add G] [Sub G] [SMul Int G] [BEq α] [Hashable α] [Ord α] [Ord π]
+
+/-
+TODO: refactor the code so that the `IntCombContext` isn't modified by `simplifyAux`,
+but instead implement a separate procedure to simplify the `IntCombContext` itself.
+-/
 
 partial def simplifyAux (sum : LSum Int α) (g : G) (pf : LSum Int π) (acc : LSum Int α) : StateM (IntCombContext α G π) (LComb Int α G π) := do
   match sum with

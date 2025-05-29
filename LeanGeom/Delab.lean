@@ -74,8 +74,30 @@ def delabProposition (prop : Proposition) : MetaM Term := do
 structure DelabState where
   nameGen : NameGenerator := { namePrefix := `h }
   names : Std.HashMap AtomProp Ident := {}
+  proof : Array (TSyntax `tactic) := #[]
+  revertedGoal : Option Ident := none
 
 abbrev DelabGeomM := StateT DelabState GeomM
+
+@[inline] def DelabGeomM.run (x : DelabGeomM Unit) : GeomM (Array (TSyntax `tactic)) := do
+  let (_, s) ← StateT.run x {}
+  return s.proof
+
+@[inline] def addProofLine (tac : TSyntax `tactic) : DelabGeomM Unit :=
+  modify fun s => { s with proof := s.proof.push tac }
+
+partial def nextName : DelabGeomM Name := do
+    let { nameGen, .. } ← get
+    modify ({ · with nameGen := nameGen.next })
+    let name := match nameGen.namePrefix with
+      | .str p s => Name.mkStr p (s ++ "_" ++ toString nameGen.idx)
+      | n        => Name.mkStr n ("_" ++ toString nameGen.idx)
+    if (← getLCtx).findFromUserName? name |>.isSome then
+      nextName
+    else if (← getEnv).find? name |>.isSome then
+      nextName
+    else
+      return name
 
 def delabTermProof (pf : TermProof) : DelabGeomM Term := do
   match pf with
@@ -84,7 +106,14 @@ def delabTermProof (pf : TermProof) : DelabGeomM Term := do
     return Syntax.mkApp (mkIdent lem) argNames
   | .proved p => return (← get).names[p]!
   | .hypothesis h => return mkIdent h
-  | .negatedGoal => throwError "need to revert the goal (using `by_contra`) before using it"
+  | .negatedGoal =>
+    if let some h := (← get).revertedGoal then
+      return h
+    let h := mkIdent (← nextName)
+    let intro_goal ← `(tactic| by_contra $h:ident)
+    modify fun s => { s with proof := s.proof.push intro_goal, revertedGoal := h }
+    return h
+
 
 
 def delabLinearComb : List (Int × AtomTermProof) → DelabGeomM Term

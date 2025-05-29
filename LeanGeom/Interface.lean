@@ -29,18 +29,6 @@ where
     | .angleComb comb => comb.foldlM (do goTerm · <| ← deAtomize ·.2) props
 
 
-partial def nextName : DelabGeomM Name := do
-    let { nameGen, .. } ← get
-    modify ({ · with nameGen := nameGen.next })
-    let name := match nameGen.namePrefix with
-      | .str p s => Name.mkStr p (s ++ "_" ++ toString nameGen.idx)
-      | n       => Name.mkStr n ("_" ++ toString nameGen.idx)
-    if (← getLCtx).findFromUserName? name |>.isSome then
-      nextName
-    else if (← getEnv).find? name |>.isSome then
-      nextName
-    else
-      return name
 
 def delabLine (prop : AtomProp) (pf : Proof) : DelabGeomM Syntax.Tactic := do
   let nameStx := mkIdent (← nextName)
@@ -49,39 +37,47 @@ def delabLine (prop : AtomProp) (pf : Proof) : DelabGeomM Syntax.Tactic := do
   let pfStx ← delabProofAsTerm pf
   `(tactic| have $nameStx : $propStx := $pfStx)
 
+def TermProof.hasNegatedGoal : TermProof → Bool
+  | .app _ args => args.attach.any (fun ⟨arg, _⟩ => arg.hasNegatedGoal)
+  | .proved _ | .hypothesis _ => false
+  | .negatedGoal => true
 
+def TacticProof.hasNegatedGoal : TacticProof → DelabGeomM Bool
+  | angleComb comb => comb.anyM fun (_, pf) => return (← deAtomize pf).hasNegatedGoal
 
-def delabCompleteProof (proof : CompleteProof) (props : Array AtomProp) : DelabGeomM (Array Syntax.Tactic) := do
-  let mut lines := #[]
-  let mut revertedGoal : Option Name := none
+def Proof.hasNegatedGoal : Proof → DelabGeomM Bool
+  | .term pf => return pf.hasNegatedGoal
+  | .tac pf => pf.hasNegatedGoal
+
+def delabCompleteProof (proof : CompleteProof) (props : Array AtomProp) : DelabGeomM Unit := do
   for prop in props do
-    let pf ← getProof prop
-    let pf ←
-      if pf matches .term .negatedGoal then
-        if let some h := revertedGoal then
-          pure (.term <| .hypothesis h)
-        else
-          let h ← nextName
-          lines := lines.push (← `(tactic| by_contra $(mkIdent h):ident))
-          pure (.term <| .hypothesis h)
-      else
-        pure pf
-    lines := lines.push (← delabLine prop pf)
+    addProofLine (← delabLine prop (← getProof prop))
   match proof with
   | .byContra p1 p2 =>
     let pf1 ← getProof p1
     let pf2 ← getProof p2
-    if revertedGoal.isNone then
+    if (← get).revertedGoal.isNone then
       if pf1 matches .term .negatedGoal then
-        return lines.push (← delabProofAsTactic pf2)
+        unless ← pf2.hasNegatedGoal do
+          addProofLine (← delabProofAsTactic pf2)
+          return
       else if pf2 matches .term .negatedGoal then
-        return lines.push (← delabProofAsTactic pf1)
+        unless ← pf1.hasNegatedGoal do
+          addProofLine (← delabProofAsTactic pf1)
+          return
     match pf1 with
-    | .term pf => lines := lines.push (← `(tactic| absurd $(← delabTermProof pf):term))
+    | .term pf =>
+      let absurd ← `(tactic| absurd $(← delabTermProof pf):term)
+      let exact ← delabProofAsTactic pf2
+      addProofLine absurd
+      addProofLine exact
     | _ =>
-      lines := lines.push (← delabLine p1 pf1)
-      lines := lines.push (← `(tactic| absurd $(← delabTermProof (.proved p1)):term))
-    return lines.push (← delabProofAsTactic pf2)
+      let absurd_pf ← delabLine p1 pf1
+      let absurd ← `(tactic| absurd $(← delabTermProof (.proved p1)):term)
+      let exact ← delabProofAsTactic pf2
+      addProofLine absurd_pf
+      addProofLine absurd
+      addProofLine exact
   | .nonzeroEqZero _ => throwError "not yet implemented"
 
 def obtainTacticProofScript : TacticM (TSyntax ``Parser.Tactic.tacticSeq) := withMainContext do
@@ -90,7 +86,7 @@ def obtainTacticProofScript : TacticM (TSyntax ``Parser.Tactic.tacticSeq) := wit
     obtainFacts goal
     let some pf ← getSolution | throwError "no solution was found"
     let props ← collectUsedProps pf |>.run' {}
-    delabCompleteProof pf props |>.run' {}
+    delabCompleteProof pf props |>.run
   `(tacticSeq| $[$pf]*)
 
 elab "lean_geom" : tactic => do
@@ -114,8 +110,8 @@ example (A B C D E F P : ℂ) (h : E ≠ P) (h : F ≠ P) (h : D ≠ P) (h : C �
     (h₁ : ∠ A E - ∠ A F - ∠ P E + ∠ P F = 0)
     (h₂ : ∠ B F - ∠ B D - ∠ P F + ∠ P D = 0)
     (h₃ : ∠ C D + ∠ E C - ∠ D P + ∠ P E = 0)
-    (l₁ : ∠ E A = -∠ E C) (l₂ : ∠ A F = ∠ B F) :
-    (∠ B D = ∠ C D) := by
+    (l₁ : ∠ E A = -∠ E C) (l₂ : ∠ A F ≠ ∠ B F) :
+    (∠ B D ≠ ∠ C D) := by
   lean_geom
 
 example (A B C D E F P : ℂ)
