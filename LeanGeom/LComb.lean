@@ -191,6 +191,10 @@ class MonadIntComb (α G π : Type) [BEq α] [Hashable α] (m : Type → Type) w
   take : m (IntCombContext α G π)
   set : IntCombContext α G π → m Unit
 
+instance {α G π m n} [BEq α] [Hashable α] [MonadIntComb α G π m] [lift : MonadLift m n] : MonadIntComb α G π n where
+  take := lift.monadLift MonadIntComb.take
+  set s := lift.monadLift (MonadIntComb.set s)
+
 structure RatCombContext (α G π : Type) [BEq α] [Hashable α] where
   ctx : Std.HashMap α (LComb Rat α G π) := {}
 deriving Inhabited

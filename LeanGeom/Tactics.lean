@@ -1,5 +1,5 @@
 import LeanGeom.LeanDefs
-import Mathlib.Tactic
+import Mathlib.Tactic.Abel
 
 /-!
 This file defines the tactics that are used by the `lean_geom` tactic.
@@ -24,18 +24,26 @@ section Angles
 
 open Real
 
-open private dischargeUsingAssumption? in Simp.dischargeDefault?
 
 theorem rayAngle_swap (A B : ℂ) (h : A ≠ B) : ∠ B A = ∠ A B + π := by
   unfold RayAngle
   rw [← Orientation.oangle_neg_left _ (sub_ne_zero_of_ne h) (by norm_num), neg_sub]
 
+open private dischargeUsingAssumption? in Simp.dischargeDefault?
+
+def proveNe (A B : Q(ℂ)) : SimpM Q($A ≠ $B) := do
+  if let some e ← dischargeUsingAssumption? q($A ≠ $B) then
+    return e
+  else if let some e ← dischargeUsingAssumption? q($B ≠ $A) then
+    have e : Q($B ≠ $A) := e
+    return q(($e).symm)
+  throwError "couldn't find a proof of {q($A ≠ $B)} in the local context"
+
 simproc_decl raySwap (RayAngle _ _) := .ofQ fun
   | 1, ~q(Real.Angle), ~q(∠ $B $A) => do
     if Expr.lt A B then
-      let some e ← dischargeUsingAssumption? q($A ≠ $B) | throwError "couldn't find a proof of {q($A ≠ $B)} in the local context"
-      let some e ← checkTypeQ e q($A ≠ $B) | return .continue
-      return .done <| .mk q(∠ $A $B + π) (some q(rayAngle_swap $A $B $e))
+      let ne ← proveNe A B
+      return .done <| .mk q(∠ $A $B + π) (some q(rayAngle_swap $A $B $ne))
     else
       return .continue
 

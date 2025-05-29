@@ -104,6 +104,10 @@ def delabTermProof (pf : TermProof) : DelabGeomM Term := do
   | .app lem args =>
     let argNames : Array Term ← args.attach.mapM (fun ⟨arg, _⟩ => delabTermProof arg)
     return Syntax.mkApp (mkIdent lem) argNames
+  | .dotApp arg lem args =>
+    let argNames : Array Term ← args.attach.mapM (fun ⟨arg, _⟩ => delabTermProof arg)
+    let head ← `($(← delabTermProof arg).$(mkIdent lem))
+    return Syntax.mkApp head argNames
   | .proved p => return (← get).names[p]!
   | .hypothesis h => return mkIdent h
   | .negatedGoal =>

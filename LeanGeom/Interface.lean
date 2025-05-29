@@ -20,6 +20,9 @@ where
   goTerm (props : Array AtomProp) (pf : TermProof) : StateT (Std.HashSet AtomProp) GeomM (Array AtomProp) := do
     match pf with
     | .app _ args => args.foldlM goTerm props
+    | .dotApp arg _ args =>
+      let props ← goTerm props arg
+      args.foldlM goTerm props
     | .proved prop => go props prop
     | .hypothesis _
     | .negatedGoal => pure props
@@ -39,6 +42,7 @@ def delabLine (prop : AtomProp) (pf : Proof) : DelabGeomM Syntax.Tactic := do
 
 def TermProof.hasNegatedGoal : TermProof → Bool
   | .app _ args => args.attach.any (fun ⟨arg, _⟩ => arg.hasNegatedGoal)
+  | .dotApp arg _ args => arg.hasNegatedGoal || args.attach.any (fun ⟨arg, _⟩ => arg.hasNegatedGoal)
   | .proved _ | .hypothesis _ => false
   | .negatedGoal => true
 
@@ -106,7 +110,7 @@ elab stx:"lean_geom?" : tactic => do
 example : 0 = ((2 * 2 * Real.pi : ℝ) : Real.Angle) := by
   abel_angle
 
-example (A B C D E F P : ℂ) (h : E ≠ P) (h : F ≠ P) (h : D ≠ P) (h : C ≠ E) (H : A ≠ E)
+example (A B C D E F P : ℂ) (h : E ≠ P) (h : F ≠ P) (h : D ≠ P) (h : C ≠ E) (H : A ≠ E) (h : A ≠ F) (h : B ≠ D) (h : B ≠ F) (h : C ≠ D)
     (h₁ : ∠ A E - ∠ A F - ∠ P E + ∠ P F = 0)
     (h₂ : ∠ B F - ∠ B D - ∠ P F + ∠ P D = 0)
     (h₃ : ∠ C D + ∠ E C - ∠ D P + ∠ P E = 0)
@@ -114,7 +118,7 @@ example (A B C D E F P : ℂ) (h : E ≠ P) (h : F ≠ P) (h : D ≠ P) (h : C �
     (∠ B D ≠ ∠ C D) := by
   lean_geom
 
-example (A B C D E F P : ℂ)
+example (A B C D E F P : ℂ) (h : E ≠ P) (h : F ≠ P) (h : D ≠ P) (h : C ≠ E) (H : A ≠ E) (h : A ≠ F) (h : B ≠ D) (h : B ≠ F) (h : C ≠ D)
     (h₁ : ∠ A E - ∠ A F - ∠ E P + ∠ F P = 0)
     (h₂ : ∠ B F - ∠ B D - ∠ F P + ∠ D P = 0)
     (h₃ : ∠ C D + ∠ C E - ∠ D P + ∠ E P = 0)
@@ -123,5 +127,5 @@ example (A B C D E F P : ℂ)
   lean_geom
   -- linear_combination (norm := abel) -h₁ - h₂ - h₃ + l₁ - l₂
 
-example (B C D : ℂ) (h : ∠ B D = ∠ C D) (g : ∠ B D ≠ ∠ C D) : False := by
+example (B C D : ℂ) (h : B ≠ D) (h : C ≠ D) (h : ∠ B D = ∠ C D) (g : ∠ B D ≠ ∠ C D) : False := by
   lean_geom

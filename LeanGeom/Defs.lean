@@ -9,8 +9,8 @@ structure Point where
 deriving Inhabited, BEq, Hashable
 instance : ToMessageData Point := ⟨(m!"{·.1}")⟩
 
-structure Equal (α : Type) where (lhs rhs : α)
-structure NotEqual (α : Type) where (lhs rhs : α)
+structure Equal (α : Type) where (lhs rhs : α) deriving BEq, Hashable
+structure NotEqual (α : Type) where (lhs rhs : α) deriving BEq, Hashable
 
 structure Ray where (A B : Point)
 deriving Inhabited, BEq, Hashable
@@ -47,6 +47,7 @@ local instance : Ord Lean.Name := ⟨Lean.Name.cmp⟩
 
 inductive TermProof where
 | app (lem : Name) (args : Array TermProof)
+| dotApp (arg : TermProof) (lem : Name) (args : Array TermProof)
 | proved (p : AtomProp)
 | hypothesis (h : Name)
 | negatedGoal
@@ -69,6 +70,7 @@ inductive CompleteProof where
 
 
 structure Facts where
+  distinct : Array (NotEqual Point × TermProof) := #[]
   angles : Array (AngleSum × AtomTermProof) := #[]
   nangles : Array (AngleSum × AtomTermProof) := #[]
 instance : ToMessageData Facts where
@@ -81,6 +83,7 @@ structure Ray' where (A B : Atomic Point)
 
 structure SolveCtx where
   point : AtomContext Point := {}
+  distinct : Std.HashMap (NotEqual (Atomic Point)) TermProof := {}
   ray : AtomContext Ray' := {}
   angle : IntCombContext (Atomic Ray') RatAngle AtomTermProof := {}
 

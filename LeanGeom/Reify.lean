@@ -46,6 +46,8 @@ def obtainFact (e : Q(Prop)) (pf : TermProof) : GeomM Unit := do
     let some b ← (obtainAngle b).run | return
     let pf ← atomize pf
     modifyFacts fun facts => { facts with nangles := facts.nangles.push (a - b, pf) }
+  | ~q($A ≠ $B) =>
+    modifyFacts fun facts => { facts with distinct := facts.distinct.push (⟨⟨A⟩, ⟨B⟩⟩, pf)}
   | _ => return
 
 def obtainFacts (goal : Q(Prop)) : GeomM Unit := do
